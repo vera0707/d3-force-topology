@@ -1,9 +1,9 @@
 module.exports = {
   outputDir: 'topology',
+  productionSourceMap: false,
   pages: {
     index: {
       entry: 'src/pages/topology/index.js',
-      template: 'public/index.html',
       title: 'OSS Topology',
       filename: 'index.html',
     },

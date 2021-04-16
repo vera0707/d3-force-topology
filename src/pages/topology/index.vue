@@ -4,11 +4,20 @@
     <div class="ocard-header">
         <div class="ocard-title">资源拓扑</div>
         <div class="ocard-button-groups">
-            <div class="ocard-button" @click="changeZoomRatio(true)">放大</div>
-            <div class="ocard-button" @click="changeZoomRatio(false)">缩小</div>
-            <div class="ocard-button" onclick="saveCurrentNode()">保存</div>
-            <div class="ocard-button" @click="resetTopology">重置</div>
+            <el-button type="primary" size="mini" @click="changeZoomRatio(true)">放大</el-button>
+            <el-button type="primary" size="mini" @click="changeZoomRatio(false)">缩小</el-button>
+            <el-button type="primary" size="mini" @click="resetTopology">重置</el-button>
         </div>
+    </div>
+    <div class="topology-legend">
+      <div>环组：</div>
+      <div
+        class="topology-legend-item"
+        v-for="(item,key) in loop"
+        :key="key"
+        :class="activeGroup.includes(key) ? 'active' : 'unactive'"
+        @click="filterNodeGroup(key)"
+      ></div>
     </div>
     <div class="topology-chart-containe">
         <svg id="topology-svg-box" version="1.1" xmlns="http://www.w3.org/2000/svg">
@@ -22,7 +31,7 @@
 </template>
 <script>
 import * as d3 from 'd3';
-import originData from './config/index';
+import originData from './config/mook';
 
 const width = window.innerWidth;
 const height = window.innerHeight;
@@ -32,14 +41,23 @@ export default {
     return {
       nodes: [],
       links: [],
+      loop: [],
+      activeGroup: [],
       simulation: null,
       zoomRatio: 100,
     };
   },
   created() {
-    const { nodes, edges } = originData.data;
+    const { nodes, edges, loop } = originData.data;
+    const loopList = {};
     this.nodes = nodes.map((v) => ({ ...v, label: `${v.neName.slice(0, 8)}...` }));
     this.edges = edges;
+
+    loop.forEach((v) => {
+      loopList[v.name] = v.neName;
+    });
+    this.loop = loopList;
+    this.activeGroup = Object.keys(loop);
 
     this.simulation = d3
       .forceSimulation(this.nodes)
@@ -64,6 +82,10 @@ export default {
         .data(this.nodes)
         .join('g')
         .attr('class', 'node-contain')
+        .attr('data-id', (d) => JSON.stringify(d.id))
+        .on('click', (event, d) => {
+          this.filterNodeRelation(this.loop[d.loop]);
+        })
         .call(d3.drag()
           .on('start', (event, d) => {
             if (!event.active) this.simulation.alphaTarget(0.0001).restart();
@@ -92,6 +114,9 @@ export default {
         .selectAll('line')
         .data(this.edges)
         .join('line')
+        .attr('class', 'line-element')
+        .attr('data-source', (d) => d.source.id)
+        .attr('data-target', (d) => d.target.id)
         .attr('stroke-width', 1);
 
       this.nodeElement = nodeContent
@@ -108,18 +133,7 @@ export default {
     },
     bindEvent() {
       this.simulation
-        .on('tick', () => {
-          this.lineElement.attr('x1', (d) => d.source.x + 45)
-            .attr('y1', (d) => d.source.y + 10)
-            .attr('x2', (d) => d.target.x + 45)
-            .attr('y2', (d) => d.target.y + 10);
-
-          this.nodeElement.attr('x', (d) => d.x)
-            .attr('y', (d) => d.y);
-
-          this.textElement.attr('x', (d) => d.x + 10)
-            .attr('y', (d) => d.y + 16);
-        })
+        .on('tick', this.ticked)
         .on('end', () => {
           console.log('it is end');
         });
@@ -130,6 +144,34 @@ export default {
         .call(
           d3.zoom().scaleExtent([1, 1]).on('zoom', this.zoomed),
         );
+    },
+    ticked() {
+      this.lineElement.attr('x1', (d) => d.source.x + 45)
+        .attr('y1', (d) => d.source.y + 10)
+        .attr('x2', (d) => d.target.x + 45)
+        .attr('y2', (d) => d.target.y + 10);
+
+      this.nodeElement.attr('x', (d) => d.x)
+        .attr('y', (d) => d.y);
+
+      this.textElement.attr('x', (d) => d.x + 10)
+        .attr('y', (d) => d.y + 16);
+    },
+    filterNodeRelation(result) {
+      const arrRes = JSON.stringify(result); // 优化
+      d3.selectAll('.node-contain').attr('class', function () {
+        const id = d3.select(this).attr('data-id');
+        return arrRes.includes(id) ? 'node-contain active' : 'node-contain unactive';
+      });
+
+      d3.selectAll('.line-element').attr('class', function () {
+        const $this = d3.select(this);
+        const source = $this.attr('data-source');
+        const target = $this.attr('data-target');
+        return arrRes.includes(source) && arrRes.includes(target)
+          ? 'line-element active'
+          : 'line-element unactive';
+      });
     },
     changeZoomRatio(isAmplification) {
       let moveSize = 0;
@@ -151,6 +193,17 @@ export default {
       );
 
       return true;
+    },
+    filterNodeGroup(name) {
+      if (this.activeGroup.includes(name)) {
+        this.activeGroup = this.activeGroup.filter((v) => v !== name);
+      } else this.activeGroup.push(name);
+
+      let result = [];
+      this.activeGroup.forEach((v) => {
+        result = result.concat(this.loop[v]);
+      });
+      this.filterNodeRelation(result);
     },
     resetTopology() {
       this.simulation
@@ -226,22 +279,6 @@ body{
     display: flex;
 }
 
-.ocard-button{
-    color: #fff;
-    background-color: #169bfa;
-    border-color: #169bfa;
-    padding: 7px 15px;
-    font-size: 12px;
-    border-radius: 3px;
-    white-space: nowrap;
-    cursor: pointer;
-    text-align: center;
-    font-weight: 500;
-    -webkit-appearance: none;
-    -webkit-tap-highlight-color: transparent;
-    -webkit-font-smoothing: antialiased;
-    margin-left: 10px;
-}
 .topology-chart-containe{
     width: 100%;
     height: calc(100% - 50px);
@@ -260,5 +297,50 @@ body{
 .topology-node{
     fill: rgba(78,171,245,.6);
     stroke: #4EABF5;
+}
+.node-contain.unactive,.line-element.unactive{
+  opacity: 0.2;
+}
+.topology-legend{
+  display: flex;
+  justify-content: flex-end;
+  color: #455A74;
+    font-size: 14px;
+  margin-top: 20px;
+}
+.topology-legend-item{
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: #6DC3FC;
+  margin-left: 30px;
+  cursor: pointer;
+}
+.topology-legend-item.unactive{
+  opacity: 0.2;
+}
+.topology-legend-item:nth-child(2){
+  margin-left: 10px;
+}
+.topology-legend-item:nth-child(3){
+  background: #FDB970;
+}
+.topology-legend-item:nth-child(4){
+  background: #F68383;
+}
+.topology-legend-item:nth-child(5){
+  background: #FD9D7B;
+}
+.topology-legend-item:nth-child(6){
+  background: #50D7AA;
+}
+.topology-legend-item:nth-child(7){
+  background: #2FC272;
+}
+.topology-legend-item:nth-child(8){
+  background: #8C8CDC;
+}
+.topology-legend-item:nth-child(9){
+  background: #223273;
 }
 </style>
