@@ -1,6 +1,6 @@
 module.exports = {
-  outputDir: 'topology',
   productionSourceMap: false,
+  publicPath: './',
   pages: {
     index: {
       entry: 'src/pages/topology/index.js',
