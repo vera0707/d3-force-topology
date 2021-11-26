@@ -4,7 +4,7 @@ module.exports = {
   pages: {
     index: {
       entry: 'src/pages/topology/index.js',
-      title: 'OSS Topology',
+      title: 'D3 - 力图拓扑',
       filename: 'index.html',
     },
   },
