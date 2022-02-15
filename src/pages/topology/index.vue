@@ -19,14 +19,15 @@
         </div>
       </div>
       <div class="topology-legend">
-        <div>环组：</div>
+        <div>选择环组【请点击】：</div>
         <div
           class="topology-legend-item"
           v-for="(item, key) in loop"
           :key="key"
           :class="activeGroup.includes(key) ? 'active' : 'unactive'"
           @click="filterNodeGroup(key)"
-        ></div>
+        >{{key}}
+        </div>
       </div>
       <div class="topology-chart-containe">
         <svg
@@ -230,11 +231,11 @@ export default {
 
       return true;
     },
-    saveTopology() {
-      this.$message.success("保存成功");
-      const cacheNodes = this.nodes.map((v) => ({ ...v, fx: v.x, fy: v.y }));
-      localStorage.setItem("cacheNodes", JSON.stringify(cacheNodes));
-    },
+    // saveTopology() {
+    //   this.$message.success("保存成功");
+    //   const cacheNodes = this.nodes.map((v) => ({ ...v, fx: v.x, fy: v.y }));
+    //   localStorage.setItem("cacheNodes", JSON.stringify(cacheNodes));
+    // },
     resetTopology() {
       this.simulation
         .force("charge", d3.forceManyBody().strength(-1000))
@@ -383,13 +384,18 @@ body {
 .topology-legend-item{
   width: 18px;
   height: 18px;
+  line-height: 18px;
+  text-align: center;
   border-radius: 4px;
+  color: white;
+  font-size: 12px;
   background: #6DC3FC;
   margin-left: 30px;
   cursor: pointer;
+  margin-top: 3px;
 }
 .topology-legend-item.unactive{
-  opacity: 0.2;
+  opacity: 0.4;
 }
 .topology-legend-item:nth-child(2){
   margin-left: 10px;
